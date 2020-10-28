@@ -5,7 +5,7 @@
 
 clear;
 clc;
-addpath(genpath("C:\Users\jacob\Documents\Student\Fartøy\MSS"));
+addpath(genpath("C:\Users\jacob\Documents\Student\Fartøy\TTK4190\MSS"));
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % USER INPUTS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
