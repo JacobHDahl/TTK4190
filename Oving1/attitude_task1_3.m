@@ -20,7 +20,7 @@
 % Author:                   2018-08-15 Thor I. Fossen and Håkon H. Helgesen
 
 %% USER INPUTS
-addpath(genpath("C:\Users\jacob\Documents\Student\Fartøy\MSS"));
+addpath(genpath("C:\Users\jacob\Documents\Student\Fartøy\TTK4190\MSS"));
 h = 0.1;                     % sample time (s)
 N  = 4000;                    % number of samples. Should be adjusted
 

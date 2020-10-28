@@ -1,4 +1,4 @@
-addpath(genpath("C:\Users\jacob\Documents\Student\Fartøy\MSS"));
+addpath(genpath("C:\Users\jacob\Documents\Student\Fartøy\TTK4190\MSS"));
 
 Kp = -2;
 Kd = 1.935;

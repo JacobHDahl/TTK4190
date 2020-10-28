@@ -6,7 +6,7 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% USER INPUTS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-addpath(genpath("C:\Users\jacob\Documents\Student\Fartøy\MSS"));
+addpath(genpath("C:\Users\jacob\Documents\Student\Fartøy\TTK4190\MSS"));
 h  = 0.05;    % sampling time [s]
 Ns = 1000;    % no. of samples
 
