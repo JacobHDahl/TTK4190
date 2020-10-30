@@ -103,11 +103,10 @@ wn = 1 / sqrt( 1 - 2*zeta^2 + sqrt( 4*zeta^4 - 4*zeta^2 + 2) ) * wb;
 T_reg = 175;
 K_reg = 1/130;
 m_reg = T_reg/K_reg;
-d = 1/K_reg;
 
 %Controller gains:
 Kp = m_reg * wn^2;
-Kd = 2*zeta*m_reg - d;
+Kd = (2*zeta*wn*T_reg - 1)/K_reg;
 Ki = wn*Kp/10;
 
 %Kd seems very large but what I got
@@ -119,7 +118,7 @@ C_RB_lin = [0,0,0;
             0,0,m*xg*U_d];
 C_A_lin = [0,0,0;
             0,0,-Xudot*U_d;
-            -Xudot*U_d,(Xudot-Yvdot)*U_d,Yrdot*U_d];
+            0,(Xudot-Yvdot)*U_d,-Yrdot*U_d];
 N_lin = C_RB_lin + C_A_lin + D;
 M_lin = MRB + MA;
 b_lin = [-2*U_d*Y_delta -2*U_d*N_delta]';
@@ -134,10 +133,10 @@ TF_delta_r = (Hinv(2,1)*b_lin(1) + Hinv(2,2)*b_lin(2)); %didnt work
 % x_dot = Ax + Bu 
 % A = -Minv * N_lin 
 % B = Minv*b_lin
-C = [0,1];
-D = 0;
+%C = [0,1];
+%D = 0;
 
-[b,a] = ss2tf(-Minv(2:3,2:3)*N_lin(2:3,2:3),Minv(2:3,2:3)*b_lin,C,D);
+%[b,a] = ss2tf(-Minv(2:3,2:3)*N_lin(2:3,2:3),Minv(2:3,2:3)*b_lin,C,D);
 
 
 
@@ -150,14 +149,18 @@ n = 0;
 
 %reference generation
 xd = [0,0,0]';
-wn_ref = 0.03;
+w_ref = 0.03;
 zeta_ref = 1;
+wn_ref  = w_ref;%1 / sqrt( 1 - 2*zeta_ref^2 + sqrt( 4*zeta_ref^4 - 4*zeta_ref^2 + 2) ) * w_ref;
 
-Ad = [ 0 1 0
-       0 0 1
-      -wn_ref^3  -(2*zeta_ref +1)*wn_ref^2  -(2*zeta_ref+1)*wn_ref ];
+
+Ad = [ 0 1 0;
+       0 0 1;
+      -wn_ref^3,  -(2*zeta_ref +1)*wn_ref^2,  -(2*zeta_ref+1)*wn_ref ];
   
-Bd = [ 0 0 wn_ref^3 ]';
+Bd = [0, 0, wn_ref^3]';
+
+int_error=0;
 
 
 
@@ -171,13 +174,13 @@ nu_r_Data = zeros(Ns+1,3);
 ref_data = zeros(Ns+1,3);
 for i=1:Ns+1
 
-    if(i/10 > 500)
-        psi_ref = -20*pi/180;
-    else
-        psi_ref = 10*pi/180;
-    end
+%     if(i/10 > 500)
+%         psi_ref = -20*pi/180;
+%     else
+%         psi_ref = 10*pi/180;
+%     end
     
-    xd_dot = Ad * xd + Bd * psi_ref; 
+    
     
     t = (i-1) * h;                      % time (s)
     R = Rzyx(0,0,eta(3));
@@ -185,12 +188,12 @@ for i=1:Ns+1
     % current (should be added here)
     v_c_n = [Vc*cos(beta_Vc), Vc*sin(beta_Vc), 0]';
     v_c = R' * v_c_n;
-    nu_r = nu ;%- v_c; %comment out -vc to have no current
+    nu_r = nu;%- v_c; %comment out -vc to have no current
     nu_r_Data(i,:) = nu_r;
     
     % wind (should be added here)
-    if 0%t > 200
-        gamma_w = nu(1) - 3.14 - betaVw;
+    if t > 200
+        gamma_w = eta(3) - 3.14 - betaVw;
         
         C_Y = cy*sin(gamma_w);
         C_N = cn*sin(2*gamma_w);
@@ -200,7 +203,8 @@ for i=1:Ns+1
         Ywind = 0;
         Nwind = 0;
     end
-    tau_env = [0 Ywind Nwind]';
+    %tau_env = [0 Ywind Nwind]';
+    tau_env = [0 0 0]'; %switch to add wind
     
     % state-dependent time-varying matrices
     CRB = m * nu(3) * [ 0 -1 -xg 
@@ -233,6 +237,7 @@ for i=1:Ns+1
     d = -[Xns Ycf Ncf]';
     
     % reference models
+    xd_dot = Ad * xd + Bd * psi_ref; 
     psi_d = xd(1);
     r_d = xd(2);
     u_d = U_d;
@@ -240,9 +245,13 @@ for i=1:Ns+1
     
     % thrust 
     thr = rho * Dia^4 * KT * abs(n) * n;    % thrust command (N)
+    
         
     % control law
-    delta_c = 0.1;              % rudder angle command (rad)
+    e_psi   = ssa(eta(3)-psi_d);          % Difference between desired and actual psi
+    e_r     = nu(3)-r_d;
+    delta_c = -(Kp*e_psi + Ki*int_error + Kd*e_r);
+    
     
     % ship dynamics
     u = [ thr delta ]';
@@ -276,7 +285,8 @@ for i=1:Ns+1
     
     %my stuff
     xd = euler2(xd_dot,xd,h);
-    ref_data(i,:) = xd
+    int_error = euler2(e_psi,int_error,h);
+    ref_data(i,:) = xd';
     
 end
 
