@@ -13,7 +13,7 @@ h  = 0.1;    % sampling time [s]
 Ns = 10000;  % no. of samples
 
 psi_ref = 10 * pi/180;  % desired yaw angle (rad)
-U_d = 9;                % desired cruise speed (m/s)
+U_d = 7;                % desired cruise speed (m/s)
                
 % ship parameters 
 m = 17.0677e6;          % mass (kg)
@@ -146,7 +146,6 @@ eta = [0 0 0]';
 nu  = [0.1 0 0]';
 delta = 0;
 n = 0;
-Q_m = 0;
 
 %reference generation
 xd = [0,0,0]';
@@ -244,8 +243,8 @@ for i=1:Ns+1
     u_d = U_d;
     
     
-    
-    
+    %n update
+    n_dot = Q_m - Q
     % thrust 
     Ja = 0;
     PD = 1.5;
@@ -281,21 +280,9 @@ for i=1:Ns+1
     end    
     
     % propeller dynamics
-    t_dumb = 0.1; %change?
-    T_d  = (U_d * Xu)/(t_dumb -1);
-    abs_n_n = T_d / (rho * Dia^4 * KT);
-    n_d = sign(abs_n_n)*sqrt(abs(abs_n_n));
-    
-    Q_d = rho * Dia^5 * KQ * abs(n_d)*n_d;  
     Im = 100000; Tm = 10; Km = 0.6;         % propulsion parameters
-    Y = Q_d * (1/Km);
-    K_prop = Km; %change???
-    T_prop = Tm; %change???
-    Q_m_dot = (-Q_m + K_prop*Y)/T_prop;
-    Q_f = 0;    %?????
-    Q = torq;
     n_c = 10;                               % propeller speed (rps)
-    n_dot = (Q_m - Q - Q_f)/Im;           
+    n_dot = (1/10) * (n_c - n);             % should be changed in Part 3
     
     % store simulation data in a table (for testing)
     simdata(i,:) = [t n_c delta_c n delta eta' nu' u_d psi_d r_d];       
@@ -310,8 +297,6 @@ for i=1:Ns+1
     xd = euler2(xd_dot,xd,h);
     int_error = euler2(e_psi,int_error,h);
     ref_data(i,:) = xd';
-    n_dot = euler2(n_dot,n,h);
-    Q_m_dot = euler2(Q_m_dot,Q_m,h);
     
 end
 
