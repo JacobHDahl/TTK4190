@@ -22,7 +22,7 @@ xg = -3.7;              % CG x-ccordinate (m)
 L = 161;                % length (m)
 B = 21.8;               % beam (m)
 T = 8.9;                % draft (m)
-KT = 0.7;               % propeller coefficient (-)
+%KT = 0.7;               % propeller coefficient (-)
 Dia = 3.3;              % propeller diameter (m)
 rho = 1025;             % density of water (kg/m^3)
 visc = 1e-6;            % kinematic viscousity at 20 degrees (m/s^2)
@@ -162,9 +162,13 @@ Ad = [ 0 1 0;
 Bd = [0, 0, wn_ref^3]';
 
 int_error=0;
+e=0;
 
-
-
+Ja = 0;
+PD = 1.5;
+AEAO = 0.65;
+blades = 4;
+[KT, KQ] = wageningen(Ja,PD,AEAO,blades);
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -175,11 +179,11 @@ nu_r_Data = zeros(Ns+1,3);
 ref_data = zeros(Ns+1,3);
 for i=1:Ns+1
 
-%     if(i/10 > 500)
-%         psi_ref = -20*pi/180;
-%     else
-%         psi_ref = 10*pi/180;
-%     end
+    if(i/10 > 500)
+        psi_ref = -20*pi/180;
+    else
+        psi_ref = 10*pi/180;
+    end
     
     
     
@@ -247,11 +251,7 @@ for i=1:Ns+1
     
     
     % thrust 
-    Ja = 0;
-    PD = 1.5;
-    AEAO = 0.65;
-    blades = 4;
-    [KT, KQ] = wageningen(Ja,PD,AEAO,blades);
+    
     
     thr = rho * Dia^4 * KT * abs(n) * n;    % thrust command (N)
     torq = rho*Dia^5 * KQ * abs(n)*n;
@@ -281,21 +281,23 @@ for i=1:Ns+1
     end    
     
     % propeller dynamics
-    t_dumb = 0.1; %change?
-    T_d  = (U_d * Xu)/(t_dumb -1);
+    t_dumb = 0.05; %change?
+    T_d  = ((U_d) * Xu)/(t_dumb -1);
     abs_n_n = T_d / (rho * Dia^4 * KT);
     n_d = sign(abs_n_n)*sqrt(abs(abs_n_n));
     
     Q_d = rho * Dia^5 * KQ * abs(n_d)*n_d;  
     Im = 100000; Tm = 10; Km = 0.6;         % propulsion parameters
     Y = Q_d * (1/Km);
-    K_prop = Km; %change???
-    T_prop = Tm; %change???
-    Q_m_dot = (-Q_m + K_prop*Y)/T_prop;
+    [Am, Bm, Cm, Dm] = tf2ss(Km, [Tm, 1]);
+    
+    e_dot = Am*e + Bm*Y;
+    Q_m = Cm*e + Dm*Y;
+    
     Q_f = 0;    %?????
     Q = torq;
     n_c = 10;                               % propeller speed (rps)
-    n_dot = (Q_m - Q - Q_f)/Im;           
+    n_dot = (Q_m - Q - Q_f)/(Im);           
     
     % store simulation data in a table (for testing)
     simdata(i,:) = [t n_c delta_c n delta eta' nu' u_d psi_d r_d];       
@@ -311,7 +313,7 @@ for i=1:Ns+1
     int_error = euler2(e_psi,int_error,h);
     ref_data(i,:) = xd';
     n_dot = euler2(n_dot,n,h);
-    Q_m_dot = euler2(Q_m_dot,Q_m,h);
+    e_dot = euler2(e_dot,e,h);
     
 end
 

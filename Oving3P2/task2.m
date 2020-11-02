@@ -252,6 +252,12 @@ for i=1:Ns+1
     e_r     = nu(3)-r_d;
     delta_c = -(Kp*e_psi + Ki*int_error + Kd*e_r);
     
+    %anti windup
+%     error_bound = 5000;
+%     if(int_error>error_bound)
+%         int_error = error_bound;
+%     end
+    
     
     % ship dynamics
     u = [ thr delta ]';
