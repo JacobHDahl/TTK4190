@@ -11,10 +11,10 @@ addpath(genpath("C:\Users\jacob\Documents\Student\Fartøy\TTK4190\MSS"));
 % USER INPUTS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 h  = 0.1;    % sampling time [s]
-Ns = 10000*5;  % no. of samples
+Ns = 10000;  % no. of samples
 
 psi_ref = 10 * pi/180;  % desired yaw angle (rad)
-U_d = 5;                % desired cruise speed (m/s)
+U_d = 7;                % desired cruise speed (m/s)
                
 % ship parameters 
 m = 17.0677e6;          % mass (kg)
@@ -133,15 +133,15 @@ Kd = 2*zeta*wn*m_reg;
 Ki = wn/10*Kp;
 
 % initial states
-eta = [0 0 pi]';
+eta = [0 0 0]';
 nu  = [0.1 0 0]';
 delta = 0;
-wn_ref = 0.03*2;
+wn_ref = 0.03;
 n = 0;
 xd = [0 0 0]';
 cum_error = 0;
 
-% Part 3
+%% Part 3
 Ja = 0;
 PD = 1.5;
 AEAO = 0.65;
@@ -151,19 +151,6 @@ z = 4;
 Qm = 0;
 
 t_T = 0.05;
-
-% Part 4
-WP_struct = load("Wp.mat");
-WP = WP_struct.WP;
-
-x1 = WP(1,1);
-y1 = WP(2,1);
-
-x2 = WP(1,2);
-y2 = WP(2,2);
-
-nr_WP = 2;
-WP_switch_rad = 10*L;
 
 
 
@@ -177,44 +164,6 @@ for i=1:Ns+1
 %     else
 %         psi_ref = 10*pi/180;
 %     end
-
-    eta(3) = wrapTo2Pi(eta(3));
-    %guidance law
-    pos = [eta(1), eta(2)];
-    wp_dist = (x2-eta(1))^2 + (y2-eta(2))^2;
-    
-    if wp_dist < WP_switch_rad^2
-        
-        nr_WP = nr_WP + 1;
-        if nr_WP > 6
-            x1 = x1;
-            x2 = x2;
-            y1 = y1;
-            y2 = y2;
-        else
-            x1 = x2;
-            y1 = y2;
-            x2 = WP(1,nr_WP);
-            y2 = WP(2,nr_WP);
-        end
-        
-        
-        
-    end
-    
-    delta_gui = 800;
-    Pi_p = atan2(y2-y1,x2-x1);
-    path_info = [x1, y1, x2, y2, delta_gui, Pi_p];
-    [psi_ref, y_e] = guidance(pos, path_info);
-    
-%     if mod(i,100)
-%         display(x2)
-%     end
-    
-    
-    
-    
-    %whatever
     Ad = [ 0 1 0
            0 0 1
            -wn_ref^3  -3*wn_ref^2  -3*wn_ref ];
@@ -283,7 +232,7 @@ for i=1:Ns+1
     thr = rho * Dia^4 * KT * abs(n) * n;    % thrust command (N)
         
     % control law
-    delta_unsat = -(Kp*ssa((eta(3)-xd(1))) + Ki*cum_error +  Kd*(nu(3)-xd(2)) ) ;              % rudder angle command (rad)
+    delta_c = -(Kp*(eta(3)-xd(1)) + Ki*cum_error +  Kd*(nu(3)-xd(2)) ) ;              % rudder angle command (rad)
     
     % ship dynamics
     u = [ thr delta ]';
@@ -292,15 +241,9 @@ for i=1:Ns+1
     eta_dot = R * nu;    
     
     % Rudder saturation and dynamics (Sections 9.5.2)
-    
-    
-    if abs(delta_unsat) >= delta_max
-        delta_c = sign(delta_unsat)*delta_max;
-        cum_error = cum_error - (h/Ki) * (delta_c-delta_unsat);
-    else
-        delta_c = delta_unsat;
+    if abs(delta_c) >= delta_max
+        delta_c = sign(delta_c)*delta_max;
     end
-    
     
     delta_dot = delta_c - delta;
     if abs(delta_dot) >= Ddelta_max
@@ -393,14 +336,26 @@ subplot(212)
 plot(t,v,'linewidth',2);
 title('Actual sway velocity (m/s)'); xlabel('time (s)');
 
-figure(4)
-figure(gcf)
-hold on
-siz=size(WP);
-for ii=1:(siz(2)-1)   
-    plot([WP(2,ii), WP(2,ii+1)], [WP(1,ii), WP(1,ii+1)], 'r-x')
+U_r = zeros(Ns+1,1);
+disp(size(U_r))
+for i=1:Ns+1
+    U_r(i,1)= sqrt(nu_r(i,2)^2 + nu_r(i,1)^2);
 end
-
-plot(y,x,'linewidth',2); axis('equal')
-title('North-East positions (m)');
-hold off
+U = zeros(Ns+1,1);
+for i=1:Ns+1
+    U(i,1)= sqrt(u(i)^2+v(i)^2);
+end
+betaC = zeros(Ns+1,1);
+for i = 1:Ns+1
+    betaC(i) = atan(v(i)/u(i));
+end
+beta = zeros(Ns+1,1);
+for i = 1:Ns+1
+    beta(i) = asin(nu_r(i,2)/U_r(i));
+end
+% figure(4)
+% figure(gcf)
+% plot(t, beta, 'linewidth',2);grid on; hold on
+% plot(t, betaC, 'linewidth',2);
+% legend('sideslip','crabbie');
+% title('1b');

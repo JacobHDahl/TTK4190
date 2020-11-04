@@ -11,10 +11,10 @@ addpath(genpath("C:\Users\jacob\Documents\Student\Fartøy\TTK4190\MSS"));
 % USER INPUTS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 h  = 0.1;    % sampling time [s]
-Ns = 10000*5;  % no. of samples
+Ns = 10000*3;  % no. of samples
 
 psi_ref = 10 * pi/180;  % desired yaw angle (rad)
-U_d = 5;                % desired cruise speed (m/s)
+U_d = 7;                % desired cruise speed (m/s)
                
 % ship parameters 
 m = 17.0677e6;          % mass (kg)
@@ -133,10 +133,10 @@ Kd = 2*zeta*wn*m_reg;
 Ki = wn/10*Kp;
 
 % initial states
-eta = [0 0 pi]';
+eta = [0 0 0]';
 nu  = [0.1 0 0]';
 delta = 0;
-wn_ref = 0.03*2;
+wn_ref = 0.03;
 n = 0;
 xd = [0 0 0]';
 cum_error = 0;
@@ -163,7 +163,7 @@ x2 = WP(1,2);
 y2 = WP(2,2);
 
 nr_WP = 2;
-WP_switch_rad = 10*L;
+WP_switch_rad = 2*L;
 
 
 
@@ -184,32 +184,17 @@ for i=1:Ns+1
     wp_dist = (x2-eta(1))^2 + (y2-eta(2))^2;
     
     if wp_dist < WP_switch_rad^2
-        
         nr_WP = nr_WP + 1;
-        if nr_WP > 6
-            x1 = x1;
-            x2 = x2;
-            y1 = y1;
-            y2 = y2;
-        else
-            x1 = x2;
-            y1 = y2;
-            x2 = WP(1,nr_WP);
-            y2 = WP(2,nr_WP);
-        end
-        
-        
-        
+        x1 = x2;
+        y1 = y2;
+        x2 = WP(1,nr_WP);
+        y2 = WP(2,nr_WP);
     end
     
-    delta_gui = 800;
+    delta_gui = 100;
     Pi_p = atan2(y2-y1,x2-x1);
     path_info = [x1, y1, x2, y2, delta_gui, Pi_p];
     [psi_ref, y_e] = guidance(pos, path_info);
-    
-%     if mod(i,100)
-%         display(x2)
-%     end
     
     
     
@@ -283,7 +268,7 @@ for i=1:Ns+1
     thr = rho * Dia^4 * KT * abs(n) * n;    % thrust command (N)
         
     % control law
-    delta_unsat = -(Kp*ssa((eta(3)-xd(1))) + Ki*cum_error +  Kd*(nu(3)-xd(2)) ) ;              % rudder angle command (rad)
+    delta_c = -(Kp*(eta(3)-xd(1)) + Ki*cum_error +  Kd*(nu(3)-xd(2)) ) ;              % rudder angle command (rad)
     
     % ship dynamics
     u = [ thr delta ]';
@@ -294,13 +279,10 @@ for i=1:Ns+1
     % Rudder saturation and dynamics (Sections 9.5.2)
     
     
-    if abs(delta_unsat) >= delta_max
-        delta_c = sign(delta_unsat)*delta_max;
-        cum_error = cum_error - (h/Ki) * (delta_c-delta_unsat);
-    else
-        delta_c = delta_unsat;
+    if abs(delta_c) >= delta_max
+        delta_c = sign(delta_c)*delta_max;
+        cum_error = cum_error - (h/Ki) * (delta_c-delta_c);
     end
-    
     
     delta_dot = delta_c - delta;
     if abs(delta_dot) >= Ddelta_max
