@@ -11,10 +11,10 @@ addpath(genpath("C:\Users\jacob\Documents\Student\Fartøy\TTK4190\MSS"));
 % USER INPUTS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 h  = 0.1;    % sampling time [s]
-Ns = 10000*5;  % no. of samples
+Ns = 10000*10;  % no. of samples
 
 psi_ref = 10 * pi/180;  % desired yaw angle (rad)
-U_d = 5;                % desired cruise speed (m/s)
+U_d = 7;                % desired cruise speed (m/s)
                
 % ship parameters 
 m = 17.0677e6;          % mass (kg)
