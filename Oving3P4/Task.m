@@ -165,12 +165,17 @@ y2 = WP(2,2);
 nr_WP = 2;
 WP_switch_rad = 10*L;
 
+%part 4 
+y_int = 0;
+y_int_dot = 0;
 
-
+k = 5; %tuning for ILOS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % MAIN LOOP
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 simdata = zeros(Ns+1,17);                % table of simulation data
+nu_r_Data = zeros(Ns+1,3);
+psi_ref_Data = zeros(Ns+1,1);
 for i=1:Ns+1
 %     if(i/10 > 500)
 %         psi_ref = -20*pi/180;
@@ -202,10 +207,14 @@ for i=1:Ns+1
         
     end
     
-    delta_gui = 800;
+    delta_gui = 800;    %look-ahead-distance
     Pi_p = atan2(y2-y1,x2-x1);
-    path_info = [x1, y1, x2, y2, delta_gui, Pi_p];
-    [psi_ref, y_e] = guidance(pos, path_info);
+    path_info = [x1, y1, x2, y2, delta_gui, Pi_p,y_int,k];
+    [psi_ref, y_e,y_int_dot ] = guidance(pos, path_info);
+    
+%     crab_angle = atan(nu(2)/nu(1));   crab angle compensation
+%     psi_ref = psi_ref - crab_angle;
+    psi_ref_Data(i)= psi_ref;
     
 %     if mod(i,100)
 %         display(x2)
@@ -224,8 +233,9 @@ for i=1:Ns+1
     R = Rzyx(0,0,eta(3));
     
     % current (should be added here)
-    nu_r = nu ;%- [Vc*cos(betaVc), Vc*sin(betaVc), 0]' ;
+    nu_r = nu - [Vc*cos(betaVc), Vc*sin(betaVc), 0]' ;
     u_c = Vc*cos(betaVc);
+    nu_r_Data(i,:) = nu_r;
   
     
     gamma_w = eta(3)-betaVw-pi;
@@ -336,6 +346,8 @@ for i=1:Ns+1
     cum_error = euler2(eta(3)-xd(1),cum_error,h);
     xd = euler2(xd_dot,xd,h);
     Qm = euler2(Qm_dot,Qm,h);
+    
+    y_int = euler2(y_int_dot,y_int,h);
 end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -404,3 +416,35 @@ end
 plot(y,x,'linewidth',2); axis('equal')
 title('North-East positions (m)');
 hold off
+
+beta_c_arg = v./u;
+beta_c = atan(beta_c_arg);
+beta_c = rad2deg(beta_c);
+v_relative = nu_r_Data(:,2);
+root_arg = nu_r_Data(:,1).^2 + nu_r_Data(:,2).^2;
+U_relative = sqrt(root_arg);
+beta_arg= v_relative./U_relative;
+beta = asin(beta_arg);
+beta = rad2deg(beta);
+
+course = psi + beta_c;
+
+course_d = rad2deg(psi_ref_Data);
+
+figure(5)
+plot(beta_c)
+hold on
+plot(beta)
+legend("beta_c","beta")
+hold off
+
+figure(6)
+plot(course)
+hold on
+plot(course_d)
+hold on
+plot(psi)
+hold off
+legend("course","course desired","yaw")
+
+
