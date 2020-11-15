@@ -173,6 +173,8 @@ k = 5; %tuning for ILOS
 
 %part 5
 % x = [yaw, yaw_rate, rudder_bias]'
+%uses first order nomoto model for yaw-rate
+
 NUM_r = [K_nomoto];
 DEN_r = [T_nomoto 1];
 [a_r,b_r,c_r,d_r] = tf2ss(NUM_r,DEN_r);
@@ -187,6 +189,9 @@ C_r = [1 0 0];
 sampletime = 0.01;
 
 [A_r_d, B_r_d] = c2d(A_r,B_r,sampletime);
+%check observability by obs = obsv(A_r_d,C_r); 
+%rank(obs); if this is 3 then it's observable which it is
+
         
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -195,6 +200,8 @@ sampletime = 0.01;
 simdata = zeros(Ns+1,17);                % table of simulation data
 nu_r_Data = zeros(Ns+1,3);
 psi_ref_Data = zeros(Ns+1,1);
+
+noise_Data = zeros(Ns+1,2);
 for i=1:Ns+1
 %     if(i/10 > 500)
 %         psi_ref = -20*pi/180;
@@ -203,6 +210,14 @@ for i=1:Ns+1
 %     end
 
     eta(3) = wrapTo2Pi(eta(3));
+    
+    %add noise
+    yaw_noise = normrnd(0,0.5)*(pi/180); %in radians
+    yawrate_noise = normrnd(0,0.1)*(pi/180); %in radians
+    
+    noise_state = [eta(3)+yaw_noise nu(3)+yawrate_noise];
+    noise_Data(i,:) = noise_state;
+    
     %guidance law
     pos = [eta(1), eta(2)];
     wp_dist = (x2-eta(1))^2 + (y2-eta(2))^2;
@@ -388,6 +403,10 @@ psi_d   = (180/pi) * simdata(:,13);     % deg
 r_d     = (180/pi) * simdata(:,14);     % deg/s
 nu_r    = [simdata(:,15) simdata(:,16) simdata(:,17)];
 
+%noise states
+yaw_noise = (180/pi)*noise_Data(:,1); %deg
+yawrate_noise = (180/pi)*noise_Data(:,2); %deg/s
+
 figure(1)
 figure(gcf)
 subplot(311)
@@ -414,6 +433,7 @@ title('Actual and commanded propeller speed (rpm)'); xlabel('time (s)');
 subplot(313)
 plot(t,delta,t,delta_c,'linewidth',2);
 title('Actual and commanded rudder angles (deg)'); xlabel('time (s)');
+
 
 figure(3) 
 figure(gcf)
@@ -465,5 +485,19 @@ hold on
 plot(psi)
 hold off
 legend("course","course desired","yaw")
+
+figure(7)
+subplot(211)
+plot(yaw_noise);
+hold on;
+plot(psi);
+hold off
+legend("noise","no noise");
+subplot(212)
+plot(yawrate_noise);
+hold on
+plot(r);
+hold off
+legend("noise_rate","no_noise_rate");
 
 

@@ -173,6 +173,8 @@ k = 5; %tuning for ILOS
 
 %part 5
 % x = [yaw, yaw_rate, rudder_bias]'
+%uses first order nomoto model for yaw-rate
+
 NUM_r = [K_nomoto];
 DEN_r = [T_nomoto 1];
 [a_r,b_r,c_r,d_r] = tf2ss(NUM_r,DEN_r);
@@ -184,6 +186,12 @@ B_r = [0 b_r 0]';
 E_r = [0 0 1]';
 C_r = [1 0 0];
 
+sampletime = 0.01;
+
+[A_r_d, B_r_d] = c2d(A_r,B_r,sampletime);
+%check observability by obs = obsv(A_r_d,C_r); 
+%rank(obs); if this is 3 then it's observable which it is
+
         
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -192,6 +200,8 @@ C_r = [1 0 0];
 simdata = zeros(Ns+1,17);                % table of simulation data
 nu_r_Data = zeros(Ns+1,3);
 psi_ref_Data = zeros(Ns+1,1);
+
+noise_Data = zeros(Ns+1,2);
 for i=1:Ns+1
 %     if(i/10 > 500)
 %         psi_ref = -20*pi/180;
@@ -200,6 +210,12 @@ for i=1:Ns+1
 %     end
 
     eta(3) = wrapTo2Pi(eta(3));
+    
+    yaw_noise = normrnd(0,0.5)*(180/pi);
+    yawrate_noise = normrnd(0,0.1)*(180/pi);
+    
+    noise_state = [eta(3)+yaw_noise nu(3)+yawrate_noise];
+    
     %guidance law
     pos = [eta(1), eta(2)];
     wp_dist = (x2-eta(1))^2 + (y2-eta(2))^2;
