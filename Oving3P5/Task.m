@@ -189,8 +189,21 @@ C_r = [1 0 0];
 sampletime = 0.01;
 
 [A_r_d, B_r_d] = c2d(A_r,B_r,sampletime);
+[nothing, E_r_d] = c2d(A_r,E_r,sampletime);
 %check observability by obs = obsv(A_r_d,C_r); 
 %rank(obs); if this is 3 then it's observable which it is
+
+%kalman filter
+sigma_yaw = 0.5;
+sigma_yawrate = 0.1;
+sigma_gyro = 0.1;
+yaw_noise = normrnd(0,sigma_yaw)*(pi/180); %in radians
+yawrate_noise = normrnd(0,sigma_yawrate)*(pi/180); %in radians
+
+P_k = eye(3); %needs tuning
+k_state = [0 0 0]';
+R_d = sigma_yaw^2; %???? IDK
+Q_d = sigma_gyro^2; %idk
 
         
 
@@ -212,11 +225,22 @@ for i=1:Ns+1
     eta(3) = wrapTo2Pi(eta(3));
     
     %add noise
-    yaw_noise = normrnd(0,0.5)*(pi/180); %in radians
-    yawrate_noise = normrnd(0,0.1)*(pi/180); %in radians
+    
     
     noise_state = [eta(3)+yaw_noise nu(3)+yawrate_noise];
     noise_Data(i,:) = noise_state;
+    
+    %kalman filter
+    K_gain = P_k * C_r' * (C_r * P_k * C_r' + R_d)^-1;
+    k_prev = k_state;
+    k_state = k_prev + K_gain*(noise_state(1) - C_r * k_prev);
+    
+    %extract k_state here as state estimate
+    P_prev = P_k;
+    P_k = (eye(3) - K_gain*C_r)*P_prev*(eye(3)-K_gain*C_r)' + K_gain * R_d * K_gain';
+    
+    k_state = A_r_d * k_state + B_r_d * delta;
+    P_k = A_r_d * P_k * A_r_d' + E_r_d * Q_d * E_r_d';
     
     %guidance law
     pos = [eta(1), eta(2)];
@@ -249,12 +273,6 @@ for i=1:Ns+1
 %     crab_angle = atan(nu(2)/nu(1));   crab angle compensation
 %     psi_ref = psi_ref - crab_angle;
     psi_ref_Data(i)= psi_ref;
-    
-%     if mod(i,100)
-%         display(x2)
-%     end
-    
-    
     
     
     %whatever
