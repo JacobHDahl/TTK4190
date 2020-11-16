@@ -11,7 +11,7 @@ addpath(genpath("C:\Users\jacob\Documents\Student\Fartøy\TTK4190\MSS"));
 % USER INPUTS
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 h  = 0.1;    % sampling time [s]
-Ns = 10000*10;  % no. of samples
+Ns = 10000*10; %*10 % no. of samples
 
 psi_ref = 10 * pi/180;  % desired yaw angle (rad)
 U_d = 7;                % desired cruise speed (m/s)
@@ -180,28 +180,43 @@ DEN_r = [T_nomoto 1];
 [a_r,b_r,c_r,d_r] = tf2ss(NUM_r,DEN_r);
 
 A_r = [0 1 0;
-       0 a_r -1;
+       0 a_r -K_nomoto/T_nomoto ;
        0 0 0];
-B_r = [0 b_r 0]';
-E_r = [0 0 1]';
+B_r = [0 K_nomoto/T_nomoto 0]';
+E_r = [0 0;
+       1 0;
+       0 1];
 C_r = [1 0 0];
 
-sampletime = 0.01;
+sampletime = h;
 
 [A_r_d, B_r_d] = c2d(A_r,B_r,sampletime);
-[nothing, E_r_d] = c2d(A_r,E_r,sampletime);
+[~, E_r_d] = c2d(A_r,E_r,sampletime);
 %check observability by obs = obsv(A_r_d,C_r); 
 %rank(obs); if this is 3 then it's observable which it is
 
 %kalman filter
-sigma_yaw = 0.5;
-sigma_yawrate = 0.1;
-sigma_gyro = 0.1;
+y_nu = [0 0];
+std_psi = 0.5 * pi/180;
+std_r = 0.1 * pi/180;
 
-P_k = eye(3); %needs tuning
-k_state = [0 0 0]';
-R_d = sigma_yaw^2; %???? IDK
-Q_d = sigma_gyro^2; %idk
+% Estimation initialization
+x_pred = xd;
+P_pred = zeros(3);
+x_mod = xd;
+x_upd = x_pred;
+P_upd = P_pred;
+
+% Discretized system matrices
+A_d = [1, h, 0; 0, 1 - h/T_nomoto, -K_nomoto*h/T_nomoto; 0, 0, 1];
+B_d = [0; K_nomoto*h/T_nomoto; 0];
+C_d = [1, 0, 0];
+D_d = 0;
+E_d = [0, 0; h, 0; 0, h];
+
+% Tuning matrices for Kalman filter
+Q_kalman = diag([deg2rad(0.05)^2, deg2rad(0.05)^2]);
+R_kalman = std_psi;
 
         
 
@@ -213,6 +228,7 @@ nu_r_Data = zeros(Ns+1,3);
 psi_ref_Data = zeros(Ns+1,1);
 
 noise_Data = zeros(Ns+1,2);
+kalman_Data = zeros(Ns+1,3);
 for i=1:Ns+1
 %     if(i/10 > 500)
 %         psi_ref = -20*pi/180;
@@ -222,27 +238,24 @@ for i=1:Ns+1
 
     eta(3) = wrapTo2Pi(eta(3));
     
-    %add noise
-    yaw_noise = normrnd(0,sigma_yaw)*(pi/180); %in radians
-    yawrate_noise = normrnd(0,sigma_yawrate)*(pi/180); %in radians
+    % measurements
+    y_nu(1) = normrnd(eta(3), std_psi);
+    y_nu(2) = normrnd(nu(3), std_r);
     
-    noise_state = [eta(3)+yaw_noise nu(3)+yawrate_noise];
-    noise_Data(i,:) = noise_state;
+    noise_Data(i,:) = y_nu;
+    y = y_nu(1);
     
-    %kalman filter
-    K_gain = P_k * C_r' * (C_r * P_k * C_r' + R_d)^-1;
-    k_prev = k_state;
-    k_state = k_prev + K_gain*(noise_state(1) - C_r * k_prev);
+    % Kalman filter prediction and update
     
-    %extract k_state here as state estimate
-    eta(3) = k_state(1);
-    nu(3) = k_state(2);
-    P_prev = P_k;
-    P_k = (eye(3) - K_gain*C_r)*P_prev*(eye(3)-K_gain*C_r)' + K_gain * R_d * K_gain';
+    K = (P_pred*(C_d'))*1/(C_d*P_pred*(C_d') + R_kalman);
+    x_upd = x_pred + K*ssa(y - C_d*x_pred);
+    eta(3) = x_upd(1);
+    nu(3) = x_upd(2);
     
-    %prediction
-    k_state = A_r_d * k_state + B_r_d * delta;
-    P_k = A_r_d * P_k * A_r_d' + E_r_d * Q_d * E_r_d';
+    kalman_Data(i,:) = x_upd;
+    P_upd = (eye(3) - K*C_d)*P_pred*((eye(3) - K*C_d)') + K*R_kalman*(K');
+    x_pred = A_d*x_upd + B_d*delta;
+    P_pred = A_d*P_upd*(A_d') + E_d*Q_kalman*(E_d');
     
     %guidance law
     pos = [eta(1), eta(2)];
@@ -427,6 +440,11 @@ nu_r    = [simdata(:,15) simdata(:,16) simdata(:,17)];
 yaw_noise = (180/pi)*noise_Data(:,1); %deg
 yawrate_noise = (180/pi)*noise_Data(:,2); %deg/s
 
+%kalman states
+yaw_est = (180/pi)*kalman_Data(:,1);    %deg
+yawrate_est = (180/pi)*kalman_Data(:,2); %deg/s
+gyro_bias = kalman_Data(:,3);           
+
 figure(1)
 figure(gcf)
 subplot(311)
@@ -520,4 +538,20 @@ plot(r);
 hold off
 legend("noise_rate","no_noise_rate");
 
+figure(8)
+subplot(311)
+plot(yaw_est);
+hold on;
+plot(psi);
+hold off
+legend("yaw estimate","yaw");
+subplot(312)
+plot(yawrate_est);
+hold on
+plot(r);
+hold off
+legend("yawrate estimate","yawrate");
+subplot(313)
+plot(gyro_bias);
+legend("gyrobias");
 
