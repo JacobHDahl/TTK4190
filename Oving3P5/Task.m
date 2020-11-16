@@ -197,8 +197,6 @@ sampletime = 0.01;
 sigma_yaw = 0.5;
 sigma_yawrate = 0.1;
 sigma_gyro = 0.1;
-yaw_noise = normrnd(0,sigma_yaw)*(pi/180); %in radians
-yawrate_noise = normrnd(0,sigma_yawrate)*(pi/180); %in radians
 
 P_k = eye(3); %needs tuning
 k_state = [0 0 0]';
@@ -225,7 +223,8 @@ for i=1:Ns+1
     eta(3) = wrapTo2Pi(eta(3));
     
     %add noise
-    
+    yaw_noise = normrnd(0,sigma_yaw)*(pi/180); %in radians
+    yawrate_noise = normrnd(0,sigma_yawrate)*(pi/180); %in radians
     
     noise_state = [eta(3)+yaw_noise nu(3)+yawrate_noise];
     noise_Data(i,:) = noise_state;
@@ -236,9 +235,12 @@ for i=1:Ns+1
     k_state = k_prev + K_gain*(noise_state(1) - C_r * k_prev);
     
     %extract k_state here as state estimate
+    eta(3) = k_state(1);
+    nu(3) = k_state(2);
     P_prev = P_k;
     P_k = (eye(3) - K_gain*C_r)*P_prev*(eye(3)-K_gain*C_r)' + K_gain * R_d * K_gain';
     
+    %prediction
     k_state = A_r_d * k_state + B_r_d * delta;
     P_k = A_r_d * P_k * A_r_d' + E_r_d * Q_d * E_r_d';
     
