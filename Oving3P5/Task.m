@@ -283,11 +283,11 @@ for i=1:Ns+1
     delta_gui = 800;    %look-ahead-distance
     Pi_p = atan2(y2-y1,x2-x1);
     path_info = [x1, y1, x2, y2, delta_gui, Pi_p,y_int,k];
-    [psi_ref, y_e,y_int_dot ] = guidance(pos, path_info);
+    %[psi_ref, y_e,y_int_dot ] = guidance(pos, path_info);
     
 %     crab_angle = atan(nu(2)/nu(1));   crab angle compensation
 %     psi_ref = psi_ref - crab_angle;
-    psi_ref_Data(i)= psi_ref;
+    %psi_ref_Data(i)= psi_ref;
     
     
     %whatever
